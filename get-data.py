@@ -99,7 +99,8 @@ def get_fiman_atm(id, begin_date, end_date):
     r_df["date"] = pd.to_datetime(r_df["data_time"], utc=True); 
     r_df["id"] = str(id); 
     r_df["notes"] = "FIMAN"
-    r_df = r_df.loc[:,["id","date","data_value","notes"]].rename(columns = {"data_value":"water_level"})
+    r_df["type"] = "water_level"
+    r_df = r_df.loc[:,["id","date","data_value","notes"]].rename(columns = {"data_value":"value", "notes": "api_name"})
 
     return r_df
 
@@ -164,6 +165,8 @@ def main():
     
     print(new_data.shape[0] , "new records!")
     print(new_data.iloc[0])
+
+    new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert)
 
     # try:
     #     new_data = pd.read_sql_query(query, engine).sort_values(['place','date']).drop_duplicates()
