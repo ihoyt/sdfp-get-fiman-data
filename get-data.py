@@ -100,7 +100,7 @@ def get_fiman_atm(id, begin_date, end_date):
     r_df["id"] = str(id); 
     r_df["notes"] = "FIMAN"
     r_df["type"] = "water_level"
-    r_df = r_df.loc[:,["id","date","data_value","notes"]].rename(columns = {"data_value":"value", "notes": "api_name"})
+    r_df = r_df.loc[:,["id","date","data_value","notes", "type"]].rename(columns = {"data_value":"value", "notes": "api_name"})
 
     return r_df
 
@@ -166,7 +166,7 @@ def main():
     print(new_data.shape[0] , "new records!")
     print(new_data.iloc[0])
 
-    new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert)
+    new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
 
     # try:
     #     new_data = pd.read_sql_query(query, engine).sort_values(['place','date']).drop_duplicates()
@@ -182,67 +182,6 @@ def main():
     #     return
     
     # print(new_data.shape[0] , "new records!")
-        
-    # sensors_w_new_data = list(new_data["sensor_ID"].unique())
-    
-    # try:
-    #     surveys = pd.read_sql_table("sensor_surveys", engine).sort_values(['place','date_surveyed']).drop_duplicates()
-    # except Exception as ex:
-    #     surveys = pd.DataFrame()
-    #     warnings.warn("Connection to database failed to return data")
-    #     template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-    #     message = template.format(type(ex).__name__, ex.args)
-    #     print(message)
-        
-    # if surveys.shape[0] == 0:
-    #     warnings.warn("- No survey data!")
-    #     return
-        
-    # prepared_data = match_measurements_to_survey(measurements = new_data, surveys = surveys)
-    # #print(prepared_data.to_string())    # FOR DEBUGGING
-    
-    # try: 
-    #     interpolated_data = interpolate_atm_data(prepared_data)
-    # except Exception as ex:
-    #     print(traceback.format_exc())
-    #     interpolated_data = pd.DataFrame()
-    #     warnings.warn("Error interpolating atmospheric pressure data.")
-    #     template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-    #     message = template.format(type(ex).__name__, ex.args)
-    #     print(message)
-    
-    # if interpolated_data.shape[0] == 0:
-    #     warnings.warn("No data to write to database!")
-
-    #     return "No data to write to database!"
-    
-    # formatted_data = format_interpolated_data(interpolated_data)
-    
-    # # Upsert the new data to the database table
-    # try:
-    #     formatted_data.to_sql("sensor_water_depth", engine, if_exists = "append", method=postgres_upsert)
-    #     print("Processed data to produce water depth!")
-    # except Exception as ex:
-    #     warnings.warn("Error adding processed data to `sensor_water_depth`")
-    #     template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-    #     message = template.format(type(ex).__name__, ex.args)
-    #     print(message)
-    
-    # updated_raw_data = new_data.merge(formatted_data.reset_index().loc[:,["place","sensor_ID","date","sensor_water_depth"]], on=["place","sensor_ID","date"], how = "left")
-    # updated_raw_data = updated_raw_data[updated_raw_data["sensor_water_depth"].notna()].drop(columns="sensor_water_depth")
-    # updated_raw_data["processed"] = True
-    
-    # updated_raw_data.set_index(['place', 'sensor_ID', 'date'], inplace=True)
-    
-    # # Update raw data to indicate it has been processed
-    # try:
-    #     updated_raw_data.to_sql("sensor_data", engine, if_exists = "append", method=postgres_upsert)
-    #     print("Updated raw data to indicate that it was processed!")
-    # except Exception as ex:
-    #     warnings.warn("Error updating raw data with `processed` tag")
-    #     template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-    #     message = template.format(type(ex).__name__, ex.args)
-    #     print(message)
     
     engine.dispose()
 
