@@ -166,7 +166,7 @@ def main():
     print(new_data.shape[0] , "new records!")
     print(new_data.iloc[0])
 
-    new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
+    new_data.drop_duplicates().to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
 
     # try:
     #     new_data = pd.read_sql_query(query, engine).sort_values(['place','date']).drop_duplicates()
