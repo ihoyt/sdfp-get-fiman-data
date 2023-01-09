@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 from unicodedata import numeric
 from pytz import timezone
 import requests
@@ -50,11 +51,12 @@ def postgres_upsert(table, conn, keys, data_iter):
 # Method-specific functions #
 #############################
 
-def get_fiman_atm(id, begin_date, end_date):
+def get_fiman_atm(id, sensor, begin_date, end_date):
     """Retrieve atmospheric pressure data from the NOAA tides and currents API
 
     Args:
         id (str): Station id
+        sensor (str): Requested sensor at station
         begin_date (str): Beginning date of requested time period. Format: %Y%m%d %H:%M
         end_date (str): End date of requested time period. Format: %Y%m%d %H:%M
         
@@ -68,7 +70,7 @@ def get_fiman_atm(id, begin_date, end_date):
     # at which point this will fail.
     #
 
-    fiman_gauge_keys = pd.read_csv("data/fiman_gauge_key.csv").query("site_id == @id & Sensor == 'Water Elevation'")
+    fiman_gauge_keys = pd.read_csv("data/fiman_gauge_key.csv").query("site_id == @id & Sensor == @sensor")
     
     new_begin_date = pd.to_datetime(begin_date, utc=True) - timedelta(seconds = 3600)
     new_end_date = pd.to_datetime(end_date, utc=True) + timedelta(seconds = 3600)
@@ -84,7 +86,7 @@ def get_fiman_atm(id, begin_date, end_date):
     print(query)    # FOR DEBUGGING
     
     # try:
-    r = requests.get(os.environ.get("FIMAN_URL"), params=query, timeout=600)
+    r = requests.get(os.environ.get("FIMAN_URL"), params=query, timeout=60)
     # except requests.exceptions.Timeout:
     #     return pd.DataFrame()
 
@@ -99,7 +101,7 @@ def get_fiman_atm(id, begin_date, end_date):
     r_df["date"] = pd.to_datetime(r_df["data_time"], utc=True); 
     r_df["id"] = str(id); 
     r_df["notes"] = "FIMAN"
-    r_df["type"] = "water_level"
+    r_df["type"] = "water_level" if sensor == "Water Elevation" else "pressure"
     r_df = r_df.loc[:,["id","date","data_value","notes", "type"]].rename(columns = {"data_value":"value", "notes": "api_name"})
 
     return r_df.drop_duplicates(subset=['id', 'date'])
@@ -108,31 +110,31 @@ def get_fiman_atm(id, begin_date, end_date):
 # atm API functions #
 #####################
 
-def get_atm_pressure(atm_id, atm_src, begin_date, end_date):
-    """Yo, yo, yo, it's a wrapper function!
+# def get_atm_pressure(atm_id, atm_src, begin_date, end_date):
+#     """Yo, yo, yo, it's a wrapper function!
 
-    Args:
-        atm_id (str): Value from `sensor_surveys` table that declares the ID of the station to use for atmospheric pressure data.
-        atm_src (str): Value from `sensor_surveys` table that declares the source of the atmospheric pressure data.
-        begin_date (str): The beginning date to retrieve data. Format: %Y%m%d %H:%M
-        end_date (str): The end date to retrieve data. Format: %Y%m%d %H:%M
+#     Args:
+#         atm_id (str): Value from `sensor_surveys` table that declares the ID of the station to use for atmospheric pressure data.
+#         atm_src (str): Value from `sensor_surveys` table that declares the source of the atmospheric pressure data.
+#         begin_date (str): The beginning date to retrieve data. Format: %Y%m%d %H:%M
+#         end_date (str): The end date to retrieve data. Format: %Y%m%d %H:%M
 
-    Returns:
-        pandas.DataFrame: Atmospheric pressure data for the specified time range and source
-    """    
-    print(inspect.stack()[0][3])    # print the name of the function we just entered
+#     Returns:
+#         pandas.DataFrame: Atmospheric pressure data for the specified time range and source
+#     """    
+#     print(inspect.stack()[0][3])    # print the name of the function we just entered
 
-    match atm_src.upper():
-        case "NOAA":
-            return get_noaa_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
-        case "NWS":
-            return get_nws_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
-        case "ISU":
-            return get_isu_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
-        case "FIMAN":
-            return get_fiman_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
-        case _:
-            return "No valid `atm_src` provided! Make sure you are supplying a string"
+#     match atm_src.upper():
+#         case "NOAA":
+#             return get_noaa_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
+#         case "NWS":
+#             return get_nws_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
+#         case "ISU":
+#             return get_isu_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
+#         case "FIMAN":
+#             return get_fiman_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
+#         case _:
+#             return "No valid `atm_src` provided! Make sure you are supplying a string"
 
 def main():
     print("Entering main of process_pressure.py")
@@ -156,18 +158,25 @@ def main():
     end_date = pd.to_datetime(datetime.utcnow())
     start_date = end_date - timedelta(days=31)
 
-    print("QUERYING DATA...")
-    new_data = get_fiman_atm('30046', start_date, end_date)
-
-    if new_data.shape[0] == 0:
-        warnings.warn("- No new raw data!")
-        return
+    # Get water level data
+    stations = pd.read_sql_query("SELECT DISTINCT wl_id FROM sensor_surveys WHERE wl_src='FIMAN'", engine)
+    stations = stations.to_numpy()
     
-    print(new_data.shape[0] , "new records!")
-    print(new_data.iloc[0])
+    for wl_id in stations:
+        print("Querying site " + wl_id[0] + "...")
+        new_data = get_fiman_atm(wl_id[0], 'Water Elevation', start_date, end_date)
 
-    new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
+        if new_data.shape[0] == 0:
+            warnings.warn("- No new raw data!")
+            return
+        
+        print(new_data.shape[0] , "new records!")
+        
+        new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
+        time.sleep(10)
 
+    # Get atm_pressure data
+    # TODO
     # try:
     #     new_data = pd.read_sql_query(query, engine).sort_values(['place','date']).drop_duplicates()
     # except Exception as ex:
