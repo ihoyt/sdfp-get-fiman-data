@@ -89,7 +89,7 @@ def get_fiman_atm(id, begin_date, end_date):
     #     return pd.DataFrame()
 
     j = r.content
-    print(j)
+    # print(j)
     doc = xmltodict.parse(j)
     
     unnested = doc["onerain"]["response"]["general"]["row"]
