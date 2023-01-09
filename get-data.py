@@ -154,7 +154,7 @@ def main():
     #####################
 
     end_date = pd.to_datetime(datetime.utcnow())
-    start_date = end_date - timedelta(days=1)
+    start_date = end_date - timedelta(days=31)
 
     print("QUERYING DATA...")
     new_data = get_fiman_atm('30046', start_date, end_date)
