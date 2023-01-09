@@ -10,4 +10,4 @@ COPY . .
 
 EXPOSE 5432
 
-CMD ["python", "process_pressure.py"]
+CMD ["python", "get-data.py"]
