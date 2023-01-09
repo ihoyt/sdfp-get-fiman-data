@@ -89,7 +89,7 @@ def get_fiman_atm(id, begin_date, end_date):
     #     return pd.DataFrame()
 
     j = r.content
-    # print(j)
+    print(j)
     doc = xmltodict.parse(j)
     
     unnested = doc["onerain"]["response"]["general"]["row"]
@@ -154,7 +154,7 @@ def main():
     #####################
 
     end_date = pd.to_datetime(datetime.utcnow())
-    start_date = end_date - timedelta(days=31)
+    start_date = end_date - timedelta(days=1)
 
     print("QUERYING DATA...")
     new_data = get_fiman_atm('30046', start_date, end_date)
