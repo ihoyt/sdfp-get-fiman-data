@@ -52,7 +52,7 @@ def postgres_upsert(table, conn, keys, data_iter):
 #############################
 
 def get_fiman_atm(id, sensor, begin_date, end_date):
-    """Retrieve atmospheric pressure data from the NOAA tides and currents API
+    """Retrieve data from specified sensor from the NOAA tides and currents API
 
     Args:
         id (str): Station id
@@ -61,7 +61,7 @@ def get_fiman_atm(id, sensor, begin_date, end_date):
         end_date (str): End date of requested time period. Format: %Y%m%d %H:%M
         
     Returns:
-        r_df (pd.DataFrame): DataFrame of atmospheric pressure from specified station and time range. Dates in UTC
+        r_df (pd.DataFrame): DataFrame of requested data from specified station and time range. Dates in UTC
     """    
     print(inspect.stack()[0][3])    # print the name of the function we just entered
     
@@ -176,21 +176,21 @@ def main():
         time.sleep(10)
 
     # Get atm_pressure data
-    # TODO
-    # try:
-    #     new_data = pd.read_sql_query(query, engine).sort_values(['place','date']).drop_duplicates()
-    # except Exception as ex:
-    #     new_data = pd.DataFrame()
-    #     warnings.warn("Connection to database failed to return data")
-    #     template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-    #     message = template.format(type(ex).__name__, ex.args)
-    #     print(message)
-    
-    # if new_data.shape[0] == 0:
-    #     warnings.warn("- No new raw data!")
-    #     return
-    
-    # print(new_data.shape[0] , "new records!")
+    stations = pd.read_sql_query("SELECT DISTINCT atm_station_id FROM sensor_surveys WHERE atm_data_src='FIMAN'", engine)
+    stations = stations.to_numpy()
+
+    for atm_station_id in stations:
+        print("Querying site " + atm_station_id[0] + "...")
+        new_data = get_fiman_atm(atm_station_id[0], 'Barometric Pressure', start_date, end_date)
+
+        if new_data.shape[0] == 0:
+            warnings.warn("- No new raw data!")
+            return
+        
+        print(new_data.shape[0] , "new records!")
+        
+        new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
+        time.sleep(10)
     
     engine.dispose()
 
