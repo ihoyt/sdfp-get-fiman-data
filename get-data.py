@@ -163,18 +163,18 @@ def main():
     stations = pd.read_sql_query("SELECT DISTINCT wl_id FROM sensor_surveys WHERE wl_src='FIMAN'", engine)
     stations = stations.to_numpy()
     
-    # for wl_id in stations:
-    #     print("Querying site " + wl_id[0] + "...")
-    #     new_data = get_fiman_atm(wl_id[0], 'Water Elevation', start_date, end_date)
+    for wl_id in stations:
+        print("Querying site " + wl_id[0] + "...")
+        new_data = get_fiman_atm(wl_id[0], 'Water Elevation', start_date, end_date)
 
-    #     if new_data.shape[0] == 0:
-    #         warnings.warn("- No new raw data!")
-    #         return
+        if new_data.shape[0] == 0:
+            warnings.warn("- No new raw data!")
+            return
         
-    #     print(new_data.shape[0] , "new records!")
+        print(new_data.shape[0] , "new records!")
         
-    #     new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
-    #     time.sleep(10)
+        new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
+        time.sleep(10)
 
     # Get atm_pressure data
     stations = pd.read_sql_query("SELECT DISTINCT atm_station_id FROM sensor_surveys WHERE atm_data_src='FIMAN'", engine)
