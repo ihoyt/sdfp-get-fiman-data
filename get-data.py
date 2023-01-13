@@ -156,7 +156,7 @@ def main():
     #####################
 
     end_date = pd.to_datetime(datetime.utcnow())
-    start_date = end_date - timedelta(days=os.environ.get('NUM_DAYS'))
+    start_date = end_date - timedelta(days=int(os.environ.get('NUM_DAYS')))
 
     # Get water level data
 
