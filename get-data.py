@@ -110,31 +110,31 @@ def get_fiman_atm(id, sensor, begin_date, end_date):
 # atm API functions #
 #####################
 
-# def get_atm_pressure(atm_id, atm_src, begin_date, end_date):
-#     """Yo, yo, yo, it's a wrapper function!
+def get_atm_pressure(atm_id, atm_src, begin_date, end_date):
+    """Yo, yo, yo, it's a wrapper function!
 
-#     Args:
-#         atm_id (str): Value from `sensor_surveys` table that declares the ID of the station to use for atmospheric pressure data.
-#         atm_src (str): Value from `sensor_surveys` table that declares the source of the atmospheric pressure data.
-#         begin_date (str): The beginning date to retrieve data. Format: %Y%m%d %H:%M
-#         end_date (str): The end date to retrieve data. Format: %Y%m%d %H:%M
+    Args:
+        atm_id (str): Value from `sensor_surveys` table that declares the ID of the station to use for atmospheric pressure data.
+        atm_src (str): Value from `sensor_surveys` table that declares the source of the atmospheric pressure data.
+        begin_date (str): The beginning date to retrieve data. Format: %Y%m%d %H:%M
+        end_date (str): The end date to retrieve data. Format: %Y%m%d %H:%M
 
-#     Returns:
-#         pandas.DataFrame: Atmospheric pressure data for the specified time range and source
-#     """    
-#     print(inspect.stack()[0][3])    # print the name of the function we just entered
+    Returns:
+        pandas.DataFrame: Atmospheric pressure data for the specified time range and source
+    """    
+    print(inspect.stack()[0][3])    # print the name of the function we just entered
 
-#     match atm_src.upper():
-#         case "NOAA":
-#             return get_noaa_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
-#         case "NWS":
-#             return get_nws_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
-#         case "ISU":
-#             return get_isu_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
-#         case "FIMAN":
-#             return get_fiman_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
-#         case _:
-#             return "No valid `atm_src` provided! Make sure you are supplying a string"
+    match atm_src.upper():
+        case "NOAA":
+            return get_noaa_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
+        case "NWS":
+            return get_nws_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
+        case "ISU":
+            return get_isu_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
+        case "FIMAN":
+            return get_fiman_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
+        case _:
+            return "No valid `atm_src` provided! Make sure you are supplying a string"
 
 def main():
     print("Entering main of process_pressure.py")
@@ -156,9 +156,10 @@ def main():
     #####################
 
     end_date = pd.to_datetime(datetime.utcnow())
-    start_date = end_date - timedelta(days=31)
+    start_date = end_date - timedelta(days=os.environ.get('NUM_DAYS'))
 
     # Get water level data
+
     stations = pd.read_sql_query("SELECT DISTINCT wl_id FROM sensor_surveys WHERE wl_src='FIMAN'", engine)
     stations = stations.to_numpy()
     
@@ -176,21 +177,21 @@ def main():
         time.sleep(10)
 
     # Get atm_pressure data
-    stations = pd.read_sql_query("SELECT DISTINCT atm_station_id FROM sensor_surveys WHERE atm_data_src='FIMAN'", engine)
-    stations = stations.to_numpy()
+    # stations = pd.read_sql_query("SELECT DISTINCT atm_station_id FROM sensor_surveys WHERE atm_data_src='FIMAN'", engine)
+    # stations = stations.to_numpy()
 
-    for atm_station_id in stations:
-        print("Querying site " + atm_station_id[0] + "...")
-        new_data = get_fiman_atm(atm_station_id[0], 'Barometric Pressure', start_date, end_date)
+    # for atm_station_id in stations:
+    #     print("Querying site " + atm_station_id[0] + "...")
+    #     new_data = get_fiman_atm(atm_station_id[0], 'Barometric Pressure', start_date, end_date)
 
-        if new_data.shape[0] == 0:
-            warnings.warn("- No new raw data!")
-            return
+    #     if new_data.shape[0] == 0:
+    #         warnings.warn("- No new raw data!")
+    #         return
         
-        print(new_data.shape[0] , "new records!")
+    #     print(new_data.shape[0] , "new records!")
         
-        new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
-        time.sleep(10)
+    #     new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
+    #     time.sleep(10)
     
     engine.dispose()
 
