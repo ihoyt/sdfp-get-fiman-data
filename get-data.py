@@ -157,7 +157,7 @@ def main():
     #####################
 
     end_date = pd.to_datetime(datetime.utcnow())
-    start_date = end_date - timedelta(days=int(os.environ.get('NUM_DAYS')))
+    # start_date = end_date - timedelta(days=int(os.environ.get('NUM_DAYS')))
 
     # Get water level data
 
@@ -166,6 +166,9 @@ def main():
     
     for wl_id in stations:
         print("Querying site " + wl_id[0] + "...")
+        start_date = pd.read_sql_query(f"SELECT max(date) FROM external_api_data WHERE id='{wl_id[0]}'", engine)
+        print(start_date)
+        return
         new_data = get_fiman_atm(wl_id[0], 'Water Elevation', start_date, end_date)
 
         if new_data.shape[0] == 0:
