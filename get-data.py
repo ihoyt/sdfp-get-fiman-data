@@ -168,6 +168,8 @@ def main():
         print("Querying site " + wl_id[0] + "...")
         start_date = pd.read_sql_query(f"SELECT max(date) as start FROM external_api_data WHERE id='{wl_id[0]}'", engine)
         start_date = pd.to_datetime(start_date.start.iat[0]) + timedelta(minutes=5)
+        print(start_date)
+        return
         new_data = get_fiman_atm(wl_id[0], 'Water Elevation', start_date, end_date)
 
         if new_data.shape[0] == 0:
@@ -175,8 +177,6 @@ def main():
             return
         
         print(new_data.shape[0] , "new records!")
-        # pd.set_option('display.max_rows', 500)
-        # print(new_data.head(500))
         try:
             new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
             time.sleep(10)
