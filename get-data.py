@@ -13,6 +13,7 @@ import xmltodict
 import numpy as np
 import warnings
 from sqlalchemy import create_engine
+from sqlalchemy import exc
 import inspect
 import traceback
 
@@ -39,14 +40,12 @@ def postgres_upsert(table, conn, keys, data_iter):
     from sqlalchemy.dialects.postgresql import insert
 
     data = [dict(zip(keys, row)) for row in data_iter]
-
-    print(data)
-
+    
     insert_statement = insert(table.table).values(data)
-    # upsert_statement = insert_statement.on_conflict_do_update(
-    #     constraint=f"{table.table.name}_pkey",
-    #     set_={c.key: c for c in insert_statement.excluded},
-    # )
+    upsert_statement = insert_statement.on_conflict_do_update(
+        constraint=f"{table.table.name}_pkey",
+        set_={c.key: c for c in insert_statement.excluded},
+    )
     conn.execute(insert_statement)
 
 #############################
@@ -176,10 +175,13 @@ def main():
         print(new_data.shape[0] , "new records!")
         # pd.set_option('display.max_rows', 500)
         # print(new_data.head(500))
-        
-        new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
-        time.sleep(10)
+        try:
+            new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
+            time.sleep(10)
+        except exc.SQLAlchemyError as e:
+            print(type(e))
 
+    return
     # Get atm_pressure data
     stations = pd.read_sql_query("SELECT DISTINCT atm_station_id FROM sensor_surveys WHERE atm_data_src='FIMAN'", engine)
     stations = stations.to_numpy()
