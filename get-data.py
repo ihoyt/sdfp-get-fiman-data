@@ -40,7 +40,7 @@ def postgres_upsert(table, conn, keys, data_iter):
     from sqlalchemy.dialects.postgresql import insert
 
     data = [dict(zip(keys, row)) for row in data_iter]
-    
+
     insert_statement = insert(table.table).values(data)
     upsert_statement = insert_statement.on_conflict_do_update(
         constraint=f"{table.table.name}_pkey",
@@ -180,6 +180,7 @@ def main():
             time.sleep(10)
         except exc.SQLAlchemyError as e:
             print(type(e))
+            print(e)
 
     return
     # Get atm_pressure data
