@@ -172,7 +172,8 @@ def main():
             return
         
         print(new_data.shape[0] , "new records!")
-        print(new_data.head(1000))
+        pd.set_option('display.max_rows', 500)
+        print(new_data.head(500))
         
         new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
         time.sleep(10)
