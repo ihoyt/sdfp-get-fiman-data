@@ -172,6 +172,7 @@ def main():
             return
         
         print(new_data.shape[0] , "new records!")
+        print(new_data, n=100)
         
         new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
         time.sleep(10)
