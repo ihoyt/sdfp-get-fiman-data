@@ -167,7 +167,7 @@ def main():
     for wl_id in stations:
         print("Querying site " + wl_id[0] + "...")
         start_date = pd.read_sql_query(f"SELECT max(date) FROM external_api_data WHERE id='{wl_id[0]}'", engine)
-        print(start_date[0])
+        print(start_date['max'])
         return
         new_data = get_fiman_atm(wl_id[0], 'Water Elevation', start_date, end_date)
 
