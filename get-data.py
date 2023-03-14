@@ -73,7 +73,8 @@ def get_fiman_atm(id, sensor, begin_date, end_date):
 
     fiman_gauge_keys = pd.read_csv("data/fiman_gauge_key.csv").query("site_id == @id & Sensor == @sensor")
     
-    new_begin_date = pd.to_datetime(begin_date, utc=True) - timedelta(seconds = 3600)
+    # new_begin_date = pd.to_datetime(begin_date, utc=True) - timedelta(seconds = 3600)
+    new_begin_date = pd.to_datetime(begin_date, utc=True)
     new_end_date = pd.to_datetime(end_date, utc=True) + timedelta(seconds = 3600)
     
     query = {'site_id' : fiman_gauge_keys.iloc[0]["site_id"],
