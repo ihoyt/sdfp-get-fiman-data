@@ -97,6 +97,7 @@ def get_fiman_atm(id, sensor, begin_date, end_date):
     doc = xmltodict.parse(j)
     
     unnested = doc["onerain"]["response"]["general"]["row"]
+    print(unnested)
     
     r_df = pd.DataFrame.from_dict(unnested)
 
