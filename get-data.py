@@ -46,7 +46,7 @@ def postgres_upsert(table, conn, keys, data_iter):
         constraint=f"{table.table.name}_pkey",
         set_={c.key: c for c in insert_statement.excluded},
     )
-    conn.execute(insert_statement)
+    conn.execute(upsert_statement)
 
 #############################
 # Method-specific functions #
