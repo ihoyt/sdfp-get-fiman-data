@@ -207,16 +207,16 @@ def main():
 
     end_date = pd.to_datetime(datetime.utcnow())
     start_date = end_date - timedelta(days=int(os.environ.get('NUM_DAYS')))
-    existing = pd.read_sql_query(f"SELECT * FROM external_api_data WHERE id='{wl_id[0]}' AND type='water_level' AND date >= {start_date} AND date <= {end_date}", engine)
-    print(existing)
-    return
+    
     # Get water level data
-
     stations = pd.read_sql_query("SELECT DISTINCT wl_id FROM sensor_surveys WHERE wl_src='FIMAN'", engine)
     stations = stations.to_numpy()
     
     for wl_id in stations:
         print("Querying site " + wl_id[0] + "...")
+        existing = pd.read_sql_query(f"SELECT * FROM external_api_data WHERE id='{wl_id[0]}' AND type='water_level' AND date >= {start_date} AND date <= {end_date}", engine)
+        print(existing)
+        return
         # start_date = pd.read_sql_query(f"SELECT max(date) as start FROM external_api_data WHERE id='{wl_id[0]}'", engine)
         # start_date = pd.to_datetime(start_date.start.iat[0]) + timedelta(minutes=1)
         new_data = get_fiman_atm(wl_id[0], 'Water Elevation', start_date, end_date)
