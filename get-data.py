@@ -214,9 +214,6 @@ def main():
     
     for wl_id in stations:
         print("Querying site " + wl_id[0] + "...")
-        existing = pd.read_sql_query(f"SELECT * FROM external_api_data WHERE id='{wl_id[0]}' AND type='water_level' AND date >= '{start_date.strftime('%Y-%m-%d %H:%M:%S')}' AND date <= '{end_date.strftime('%Y-%m-%d %H:%M:%S')}'", engine)
-        print(existing)
-        return
         # start_date = pd.read_sql_query(f"SELECT max(date) as start FROM external_api_data WHERE id='{wl_id[0]}'", engine)
         # start_date = pd.to_datetime(start_date.start.iat[0]) + timedelta(minutes=1)
         new_data = get_fiman_atm(wl_id[0], 'Water Elevation', start_date, end_date)
@@ -226,9 +223,11 @@ def main():
             return
         
         print(new_data.shape[0] , "new records!")
-        existing = pd.read_sql_query(f"SELECT * FROM external_api_data WHERE id='{wl_id[0]}' AND type='water_level' AND ", engine)
-        # db_data = 
-        df_upsert(new_data, 'external_api_data', engine)
+        existing = pd.read_sql_query(f"SELECT * FROM external_api_data WHERE id='{wl_id[0]}' AND type='water_level' AND date >= '{start_date.strftime('%Y-%m-%d %H:%M:%S')}' AND date <= '{end_date.strftime('%Y-%m-%d %H:%M:%S')}'", engine)
+        combined_data = pd.concat([new_data, existing]).drop_duplicates((keep=False))
+        print(combined_data)
+        return
+        df_upsert(combined_data, 'external_api_data', engine)
         time.sleep(10)
   
         # new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
