@@ -226,7 +226,8 @@ def main():
         query = f"SELECT * FROM external_api_data WHERE id='{wl_id[0]}' AND type='water_level' AND date >= '{start_date.strftime('%Y-%m-%d %H:%M:%S')}' AND date <= '{end_date.strftime('%Y-%m-%d %H:%M:%S')}'"
         print(query)
         existing = pd.read_sql_query(query, engine)
-        combined_data = pd.concat([new_data, existing]).drop_duplicates()
+        combined_data = pd.concat([new_data, existing])
+        combined_data = combined_data.drop_duplicates(subset=['date', 'value'])
         df_upsert(combined_data, 'external_api_data', engine)
         time.sleep(10)
   
