@@ -226,9 +226,11 @@ def main():
         query = f"SELECT * FROM external_api_data WHERE id='{wl_id[0]}' AND type='water_level' AND date >= '{start_date.strftime('%Y-%m-%d %H:%M:%S')}' AND date <= '{end_date.strftime('%Y-%m-%d %H:%M:%S')}'"
         print(query)
         existing = pd.read_sql_query(query, engine)
+        print(existing.shape[0] , "existing records for time period!")
         combined_data = pd.concat([new_data, existing])
         combined_data = combined_data.drop_duplicates(subset=['date', 'value'])
-        df_upsert(combined_data, 'external_api_data', engine)
+        print(combined_data.shape[0], " records once combined and duplicates dropped")
+        # df_upsert(combined_data, 'external_api_data', engine)
         time.sleep(10)
   
         # new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
