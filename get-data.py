@@ -53,7 +53,7 @@ def df_upsert(data_frame, table_name, engine, schema=None, match_columns=None):
 
     df_columns = list(data_frame.columns)
     if not match_columns:
-        insp = inspect(engine)
+        insp = sa.inspect(engine)
         match_columns = insp.get_pk_constraint(table_name, schema=schema)[
             "constrained_columns"
         ]
