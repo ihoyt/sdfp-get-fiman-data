@@ -226,6 +226,7 @@ def main():
         
         print(new_data.shape[0] , "new records!")
         df_upsert(new_data, 'external_api_data', engine)
+        time.sleep(10)
         # try:
         #     new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
         #     time.sleep(10)
@@ -247,8 +248,8 @@ def main():
             return
         
         print(new_data.shape[0] , "new records!")
-        
-        new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
+        df_upsert(new_data, 'external_api_data', engine)
+        # new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
         time.sleep(10)
     
     engine.dispose()
