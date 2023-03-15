@@ -121,7 +121,8 @@ def get_fiman_atm(id, sensor, begin_date, end_date):
 
     fiman_gauge_keys = pd.read_csv("data/fiman_gauge_key.csv").query("site_id == @id & Sensor == @sensor")
     
-    new_begin_date = pd.to_datetime(begin_date, utc=True) - timedelta(seconds = 3600)
+    # new_begin_date = pd.to_datetime(begin_date, utc=True) - timedelta(seconds = 3600)
+    new_begin_date = pd.to_datetime(begin_date, utc=True)
     new_end_date = pd.to_datetime(end_date, utc=True) + timedelta(seconds = 3600)
     
     query = {'site_id' : fiman_gauge_keys.iloc[0]["site_id"],
@@ -205,7 +206,7 @@ def main():
     #####################
 
     end_date = pd.to_datetime(datetime.utcnow())
-    start_date = end_date - timedelta(days=int(os.environ.get('NUM_DAYS')))
+    # start_date = end_date - timedelta(days=int(os.environ.get('NUM_DAYS')))
 
     # Get water level data
 
@@ -214,8 +215,8 @@ def main():
     
     for wl_id in stations:
         print("Querying site " + wl_id[0] + "...")
-        # start_date = pd.read_sql_query(f"SELECT max(date) as start FROM external_api_data WHERE id='{wl_id[0]}'", engine)
-        # start_date = pd.to_datetime(start_date.start.iat[0]) + timedelta(minutes=1)
+        start_date = pd.read_sql_query(f"SELECT max(date) as start FROM external_api_data WHERE id='{wl_id[0]}'", engine)
+        start_date = pd.to_datetime(start_date.start.iat[0]) + timedelta(minutes=1)
         new_data = get_fiman_atm(wl_id[0], 'Water Elevation', start_date, end_date)
 
         if new_data.shape[0] == 0:
