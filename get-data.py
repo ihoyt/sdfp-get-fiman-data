@@ -7,6 +7,7 @@ import requests
 from datetime import datetime
 from datetime import timedelta
 import pandas as pd
+import sqlalchemy as sa
 from io import StringIO
 from urllib.request import urlopen
 import xmltodict
