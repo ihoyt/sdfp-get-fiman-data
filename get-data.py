@@ -149,7 +149,7 @@ def get_fiman_atm(id, sensor, begin_date, end_date):
     r_df = pd.DataFrame.from_dict(unnested)
 
     # r_df["date"] = pd.to_datetime(r_df["data_time"], utc=True); 
-    r_df["date"] = pd.to_datetime(r_df['data_time'].astype(str), format='%Y-%m-%d %H:%M:%S', utc=True); 
+    r_df["date"] = pd.to_datetime(r_df['data_time'], format='%Y-%m-%d %H:%M:%S', utc=True); 
     r_df["id"] = str(id); 
     r_df["notes"] = "FIMAN"
     r_df["type"] = "water_level" if sensor == "Water Elevation" else "pressure"
@@ -224,10 +224,11 @@ def main():
             return
         
         print(new_data.shape[0] , "new records!")
-        
+        print(new_date)
         query = f"SELECT * FROM external_api_data WHERE id='{wl_id[0]}' AND type='water_level' AND date >= '{start_date.strftime('%Y-%m-%d %H:%M:%S')}' AND date <= '{end_date.strftime('%Y-%m-%d %H:%M:%S')}'"
         print(query)
         existing = pd.read_sql_query(query, engine)
+        existing['date'] = pd.to_datetime(existing['date'], format='%Y-%m-%d %H:%M:%S', utc=True)
         print(existing.shape[0] , "existing records for time period!")
         print(existing)
         combined_data = pd.concat([new_data, existing])
