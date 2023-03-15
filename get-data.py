@@ -13,8 +13,6 @@ from urllib.request import urlopen
 import xmltodict
 import numpy as np
 import warnings
-from sqlalchemy import create_engine
-from sqlalchemy import exc
 import inspect
 import traceback
 
@@ -200,7 +198,7 @@ def main():
     SQLALCHEMY_DATABASE_URL = "postgresql://" + os.environ.get('POSTGRESQL_USER') + ":" + os.environ.get(
         'POSTGRESQL_PASSWORD') + "@" + os.environ.get('POSTGRESQL_HOSTNAME') + "/" + os.environ.get('POSTGRESQL_DATABASE')
 
-    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+    engine = sa.create_engine(SQLALCHEMY_DATABASE_URL)
     
     #####################
     # Collect new data  #
@@ -227,13 +225,10 @@ def main():
         print(new_data.shape[0] , "new records!")
         df_upsert(new_data, 'external_api_data', engine)
         time.sleep(10)
-        # try:
-        #     new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
-        #     time.sleep(10)
-        # except exc.SQLAlchemyError as e:
-        #     print(type(e))
-        #     print(e)
-
+  
+        # new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
+        # time.sleep(10)
+    
     # Get atm_pressure data
     stations = pd.read_sql_query("SELECT DISTINCT atm_station_id FROM sensor_surveys WHERE atm_data_src='FIMAN'", engine)
     stations = stations.to_numpy()
