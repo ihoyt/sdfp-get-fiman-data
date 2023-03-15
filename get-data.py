@@ -148,9 +148,8 @@ def get_fiman_atm(id, sensor, begin_date, end_date):
     
     r_df = pd.DataFrame.from_dict(unnested)
 
-    # r_df["date"] = pd.to_datetime(r_df["data_time"], utc=True); 
-    r_df["date"] = pd.to_datetime(r_df['data_time'], format='%Y-%m-%d %H:%M:%S', utc=True); 
-    # r_df = r_df.round(2)
+    r_df["date"] = pd.to_datetime(r_df["data_time"], utc=True); 
+    # r_df["date"] = pd.to_datetime(r_df['data_time'], format='%Y-%m-%d %H:%M:%S', utc=True); 
     r_df['data_value'] = r_df['data_value'].astype(float).round(2)
     r_df["id"] = str(id); 
     r_df["notes"] = "FIMAN"
@@ -237,8 +236,8 @@ def main():
         combined_data = combined_data.drop_duplicates(keep=False)
         print(combined_data.shape[0], " records once combined and duplicates dropped")
         print(combined_data)
-        return
-        # df_upsert(combined_data, 'external_api_data', engine)
+        
+        df_upsert(combined_data, 'external_api_data', engine)
         time.sleep(10)
   
         # new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
