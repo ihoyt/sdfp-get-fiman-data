@@ -27,6 +27,55 @@ def timestamped_print(*args, **kwargs):
   old_print(datetime.now(), *args, **kwargs)
 print = timestamped_print
 
+def df_upsert(data_frame, table_name, engine, schema=None, match_columns=None):
+    """
+    Perform an "upsert" on a PostgreSQL table from a DataFrame.
+    Constructs an INSERT … ON CONFLICT statement, uploads the DataFrame to a
+    temporary table, and then executes the INSERT.
+    Parameters
+    ----------
+    data_frame : pandas.DataFrame
+        The DataFrame to be upserted.
+    table_name : str
+        The name of the target table.
+    engine : sqlalchemy.engine.Engine
+        The SQLAlchemy Engine to use.
+    schema : str, optional
+        The name of the schema containing the target table.
+    match_columns : list of str, optional
+        A list of the column name(s) on which to match. If omitted, the
+        primary key columns of the target table will be used.
+    """
+    print("df_upsert entered")
+    table_spec = ""
+    if schema:
+        table_spec += '"' + schema.replace('"', '""') + '".'
+    table_spec += '"' + table_name.replace('"', '""') + '"'
+
+    df_columns = list(data_frame.columns)
+    if not match_columns:
+        insp = sa.inspect(engine)
+        match_columns = insp.get_pk_constraint(table_name, schema=schema)[
+            "constrained_columns"
+        ]
+    columns_to_update = [col for col in df_columns if col not in match_columns]
+    insert_col_list = ", ".join([f'"{col_name}"' for col_name in df_columns])
+    stmt = f"INSERT INTO {table_spec} ({insert_col_list})\n"
+    stmt += f"SELECT {insert_col_list} FROM temp_table\n"
+    match_col_list = ", ".join([f'"{col}"' for col in match_columns])
+    stmt += f"ON CONFLICT ({match_col_list}) DO UPDATE SET\n"
+    stmt += ", ".join(
+        [f'"{col}" = EXCLUDED."{col}"' for col in columns_to_update]
+    )
+
+    with engine.begin() as conn:
+        conn.exec_driver_sql("DROP TABLE IF EXISTS temp_table")
+        conn.exec_driver_sql(
+            f"CREATE TEMPORARY TABLE temp_table AS SELECT * FROM {table_spec} WHERE false"
+        )
+        data_frame.to_sql("temp_table", conn, if_exists="append", index=False)
+        conn.exec_driver_sql(stmt)
+
 
 def slicer(my_str,sub):
         index=my_str.find(sub)
@@ -73,8 +122,8 @@ def get_fiman_atm(id, sensor, begin_date, end_date):
 
     fiman_gauge_keys = pd.read_csv("data/fiman_gauge_key.csv").query("site_id == @id & Sensor == @sensor")
     
-    # new_begin_date = pd.to_datetime(begin_date, utc=True) - timedelta(seconds = 3600)
-    new_begin_date = pd.to_datetime(begin_date, utc=True)
+    new_begin_date = pd.to_datetime(begin_date, utc=True) - timedelta(seconds = 3600)
+    # new_begin_date = pd.to_datetime(begin_date, utc=True)
     new_end_date = pd.to_datetime(end_date, utc=True) + timedelta(seconds = 3600)
     
     query = {'site_id' : fiman_gauge_keys.iloc[0]["site_id"],
@@ -97,7 +146,6 @@ def get_fiman_atm(id, sensor, begin_date, end_date):
     doc = xmltodict.parse(j)
     
     unnested = doc["onerain"]["response"]["general"]["row"]
-    print(unnested)
     
     r_df = pd.DataFrame.from_dict(unnested)
 
@@ -159,7 +207,7 @@ def main():
     #####################
 
     end_date = pd.to_datetime(datetime.utcnow())
-    # start_date = end_date - timedelta(days=int(os.environ.get('NUM_DAYS')))
+    start_date = end_date - timedelta(days=int(os.environ.get('NUM_DAYS')))
 
     # Get water level data
 
@@ -168,8 +216,8 @@ def main():
     
     for wl_id in stations:
         print("Querying site " + wl_id[0] + "...")
-        start_date = pd.read_sql_query(f"SELECT max(date) as start FROM external_api_data WHERE id='{wl_id[0]}'", engine)
-        start_date = pd.to_datetime(start_date.start.iat[0]) + timedelta(minutes=1)
+        # start_date = pd.read_sql_query(f"SELECT max(date) as start FROM external_api_data WHERE id='{wl_id[0]}'", engine)
+        # start_date = pd.to_datetime(start_date.start.iat[0]) + timedelta(minutes=1)
         new_data = get_fiman_atm(wl_id[0], 'Water Elevation', start_date, end_date)
 
         if new_data.shape[0] == 0:
@@ -177,12 +225,13 @@ def main():
             return
         
         print(new_data.shape[0] , "new records!")
-        try:
-            new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
-            time.sleep(10)
-        except exc.SQLAlchemyError as e:
-            print(type(e))
-            print(e)
+        df_upsert(new_data, 'external_api_data', engine)
+        # try:
+        #     new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
+        #     time.sleep(10)
+        # except exc.SQLAlchemyError as e:
+        #     print(type(e))
+        #     print(e)
 
     return
     # Get atm_pressure data
