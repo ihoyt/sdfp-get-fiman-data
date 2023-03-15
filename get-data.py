@@ -149,7 +149,7 @@ def get_fiman_atm(id, sensor, begin_date, end_date):
     r_df = pd.DataFrame.from_dict(unnested)
 
     # r_df["date"] = pd.to_datetime(r_df["data_time"], utc=True); 
-    r_df["date"] = pd.to_datetime(df['date'].astype(str), format='%Y-%m-%d %H:%M:%S', utc=True); 
+    r_df["date"] = pd.to_datetime(r_df['date'].astype(str), format='%Y-%m-%d %H:%M:%S', utc=True); 
     r_df["id"] = str(id); 
     r_df["notes"] = "FIMAN"
     r_df["type"] = "water_level" if sensor == "Water Elevation" else "pressure"
