@@ -234,7 +234,6 @@ def main():
         #     print(type(e))
         #     print(e)
 
-    return
     # Get atm_pressure data
     stations = pd.read_sql_query("SELECT DISTINCT atm_station_id FROM sensor_surveys WHERE atm_data_src='FIMAN'", engine)
     stations = stations.to_numpy()
