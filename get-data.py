@@ -150,7 +150,7 @@ def get_fiman_atm(id, sensor, begin_date, end_date):
 
     # r_df["date"] = pd.to_datetime(r_df["data_time"], utc=True); 
     r_df["date"] = pd.to_datetime(r_df['data_time'], format='%Y-%m-%d %H:%M:%S', utc=True); 
-    r_df["data_value"] = r_df.round({"data_value": 2})
+    r_df["data_value"] = r_df["data_value"].round(2)
     r_df["id"] = str(id); 
     r_df["notes"] = "FIMAN"
     r_df["type"] = "water_level" if sensor == "Water Elevation" else "pressure"
@@ -233,7 +233,7 @@ def main():
         print(existing.shape[0] , "existing records for time period!")
         print(existing)
         combined_data = pd.concat([new_data, existing])
-        combined_data = combined_data.drop_duplicates()
+        combined_data = combined_data.drop_duplicates(keep=False)
         print(combined_data.shape[0], " records once combined and duplicates dropped")
         print(combined_data)
         return
