@@ -123,7 +123,8 @@ def get_fiman_atm(id, sensor, begin_date, end_date):
     
     # new_begin_date = pd.to_datetime(begin_date, utc=True) - timedelta(seconds = 3600)
     new_begin_date = pd.to_datetime(begin_date, utc=True)
-    new_end_date = pd.to_datetime(end_date, utc=True) + timedelta(seconds = 3600)
+    # new_end_date = pd.to_datetime(end_date, utc=True) + timedelta(seconds = 3600)
+    new_end_date = pd.to_datetime(end_date, utc=True)
     
     query = {'site_id' : fiman_gauge_keys.iloc[0]["site_id"],
              'data_start' : new_begin_date.strftime('%Y-%m-%d %H:%M:%S'),
