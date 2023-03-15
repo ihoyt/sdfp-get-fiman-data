@@ -90,11 +90,11 @@ def postgres_upsert(table, conn, keys, data_iter):
     data = [dict(zip(keys, row)) for row in data_iter]
 
     insert_statement = insert(table.table).values(data)
-    upsert_statement = insert_statement.on_conflict_do_update(
-        constraint=f"{table.table.name}_pkey",
-        set_={c.key: c for c in insert_statement.excluded},
-    )
-    conn.execute(upsert_statement)
+    # upsert_statement = insert_statement.on_conflict_do_update(
+    #     constraint=f"{table.table.name}_pkey",
+    #     set_={c.key: c for c in insert_statement.excluded},
+    # )
+    conn.execute(insert_statement)
 
 #############################
 # Method-specific functions #
@@ -225,23 +225,17 @@ def main():
             return
         
         print(new_data.shape[0] , "new records!")
-        print(new_data)
         query = f"SELECT * FROM external_api_data WHERE id='{wl_id[0]}' AND type='water_level' AND date >= '{start_date.strftime('%Y-%m-%d %H:%M:%S')}' AND date <= '{end_date.strftime('%Y-%m-%d %H:%M:%S')}'"
-        print(query)
         existing = pd.read_sql_query(query, engine)
         existing['date'] = pd.to_datetime(existing['date'], format='%Y-%m-%d %H:%M:%S', utc=True)
-        print(existing.shape[0] , "existing records for time period!")
-        print(existing)
         combined_data = pd.concat([new_data, existing])
         combined_data = combined_data.drop_duplicates(keep=False)
-        print(combined_data.shape[0], " records once combined and duplicates dropped")
-        print(combined_data)
         
-        df_upsert(combined_data, 'external_api_data', engine)
-        time.sleep(10)
-  
-        # new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
+        # df_upsert(combined_data, 'external_api_data', engine)
         # time.sleep(10)
+  
+        combined_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
+        time.sleep(10)
     
     # Get atm_pressure data
     stations = pd.read_sql_query("SELECT DISTINCT atm_station_id FROM sensor_surveys WHERE atm_data_src='FIMAN'", engine)
