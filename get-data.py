@@ -214,7 +214,7 @@ def main():
     
     for wl_id in stations:
         print("Querying site " + wl_id[0] + "...")
-        existing = pd.read_sql_query(f"SELECT * FROM external_api_data WHERE id='{wl_id[0]}' AND type='water_level' AND date >= {start_date} AND date <= {end_date}", engine)
+        existing = pd.read_sql_query(f"SELECT * FROM external_api_data WHERE id='{wl_id[0]}' AND type='water_level' AND date >= '{start_date.strftime('%Y-%m-%d %H:%M:%S')}' AND date <= '{end_date.strftime('%Y-%m-%d %H:%M:%S')}'", engine)
         print(existing)
         return
         # start_date = pd.read_sql_query(f"SELECT max(date) as start FROM external_api_data WHERE id='{wl_id[0]}'", engine)
