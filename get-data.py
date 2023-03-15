@@ -7,7 +7,6 @@ import requests
 from datetime import datetime
 from datetime import timedelta
 import pandas as pd
-import sqlalchemy as sa
 from io import StringIO
 from urllib.request import urlopen
 import xmltodict
@@ -15,6 +14,7 @@ import numpy as np
 import warnings
 from sqlalchemy import create_engine
 from sqlalchemy import exc
+from sqlalchemy import inspect
 import inspect
 import traceback
 
@@ -33,6 +33,7 @@ def df_upsert(data_frame, table_name, engine, schema=None, match_columns=None):
     Perform an "upsert" on a PostgreSQL table from a DataFrame.
     Constructs an INSERT … ON CONFLICT statement, uploads the DataFrame to a
     temporary table, and then executes the INSERT.
+    Taken from https://gist.github.com/gordthompson/ae7a1528fde1c00c03fdbb5c53c8f90f
     Parameters
     ----------
     data_frame : pandas.DataFrame
@@ -47,7 +48,6 @@ def df_upsert(data_frame, table_name, engine, schema=None, match_columns=None):
         A list of the column name(s) on which to match. If omitted, the
         primary key columns of the target table will be used.
     """
-    print("df_upsert entered")
     table_spec = ""
     if schema:
         table_spec += '"' + schema.replace('"', '""') + '".'
@@ -55,7 +55,7 @@ def df_upsert(data_frame, table_name, engine, schema=None, match_columns=None):
 
     df_columns = list(data_frame.columns)
     if not match_columns:
-        insp = sa.inspect(engine)
+        insp = inspect(engine)
         match_columns = insp.get_pk_constraint(table_name, schema=schema)[
             "constrained_columns"
         ]
@@ -92,11 +92,11 @@ def postgres_upsert(table, conn, keys, data_iter):
     data = [dict(zip(keys, row)) for row in data_iter]
 
     insert_statement = insert(table.table).values(data)
-    # upsert_statement = insert_statement.on_conflict_do_update(
-    #     constraint=f"{table.table.name}_pkey",
-    #     set_={c.key: c for c in insert_statement.excluded},
-    # )
-    conn.execute(insert_statement)
+    upsert_statement = insert_statement.on_conflict_do_update(
+        constraint=f"{table.table.name}_pkey",
+        set_={c.key: c for c in insert_statement.excluded},
+    )
+    conn.execute(upsert_statement)
 
 #############################
 # Method-specific functions #
@@ -124,7 +124,6 @@ def get_fiman_atm(id, sensor, begin_date, end_date):
     fiman_gauge_keys = pd.read_csv("data/fiman_gauge_key.csv").query("site_id == @id & Sensor == @sensor")
     
     new_begin_date = pd.to_datetime(begin_date, utc=True) - timedelta(seconds = 3600)
-    # new_begin_date = pd.to_datetime(begin_date, utc=True)
     new_end_date = pd.to_datetime(end_date, utc=True) + timedelta(seconds = 3600)
     
     query = {'site_id' : fiman_gauge_keys.iloc[0]["site_id"],
