@@ -235,7 +235,7 @@ def main():
         # df_upsert(combined_data, 'external_api_data', engine)
         # time.sleep(10)
   
-        new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
+        new_data.to_sql("api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
         time.sleep(10)
     
     # Get atm_pressure data
@@ -252,7 +252,7 @@ def main():
         
         print(new_data.shape[0] , "new records!")
         # df_upsert(new_data, 'external_api_data', engine)
-        new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
+        new_data.to_sql("api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
         time.sleep(10)
     
     engine.dispose()
