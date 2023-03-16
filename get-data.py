@@ -226,16 +226,16 @@ def main():
             return
         
         print(new_data.shape[0] , "new records!")
-        query = f"SELECT * FROM external_api_data WHERE id='{wl_id[0]}' AND type='water_level' AND date >= '{start_date.strftime('%Y-%m-%d %H:%M:%S')}' AND date <= '{end_date.strftime('%Y-%m-%d %H:%M:%S')}'"
-        existing = pd.read_sql_query(query, engine)
-        existing['date'] = pd.to_datetime(existing['date'], format='%Y-%m-%d %H:%M:%S', utc=True)
-        combined_data = pd.concat([new_data, existing])
-        combined_data = combined_data.drop_duplicates(keep=False)
+        # query = f"SELECT * FROM external_api_data WHERE id='{wl_id[0]}' AND type='water_level' AND date >= '{start_date.strftime('%Y-%m-%d %H:%M:%S')}' AND date <= '{end_date.strftime('%Y-%m-%d %H:%M:%S')}'"
+        # existing = pd.read_sql_query(query, engine)
+        # existing['date'] = pd.to_datetime(existing['date'], format='%Y-%m-%d %H:%M:%S', utc=True)
+        # combined_data = pd.concat([new_data, existing])
+        # combined_data = combined_data.drop_duplicates(keep=False)
         
         # df_upsert(combined_data, 'external_api_data', engine)
         # time.sleep(10)
   
-        combined_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
+        new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
         time.sleep(10)
     
     # Get atm_pressure data
@@ -251,8 +251,8 @@ def main():
             return
         
         print(new_data.shape[0] , "new records!")
-        df_upsert(new_data, 'external_api_data', engine)
-        # new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
+        # df_upsert(new_data, 'external_api_data', engine)
+        new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
         time.sleep(10)
     
     engine.dispose()
