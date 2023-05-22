@@ -1,18 +1,19 @@
 import os
 import sys
 import time
+import json
 from unicodedata import numeric
 from pytz import timezone
 import requests
 from datetime import datetime
 from datetime import timedelta
 import pandas as pd
-import sqlalchemy as sa
 from io import StringIO
 from urllib.request import urlopen
 import xmltodict
 import numpy as np
 import warnings
+from sqlalchemy import create_engine
 import inspect
 import traceback
 
@@ -25,55 +26,6 @@ old_print = print
 def timestamped_print(*args, **kwargs):
   old_print(datetime.now(), *args, **kwargs)
 print = timestamped_print
-
-def df_upsert(data_frame, table_name, engine, schema=None, match_columns=None):
-    """
-    Perform an "upsert" on a PostgreSQL table from a DataFrame.
-    Constructs an INSERT … ON CONFLICT statement, uploads the DataFrame to a
-    temporary table, and then executes the INSERT.
-    Taken from https://gist.github.com/gordthompson/ae7a1528fde1c00c03fdbb5c53c8f90f
-    Parameters
-    ----------
-    data_frame : pandas.DataFrame
-        The DataFrame to be upserted.
-    table_name : str
-        The name of the target table.
-    engine : sqlalchemy.engine.Engine
-        The SQLAlchemy Engine to use.
-    schema : str, optional
-        The name of the schema containing the target table.
-    match_columns : list of str, optional
-        A list of the column name(s) on which to match. If omitted, the
-        primary key columns of the target table will be used.
-    """
-    table_spec = ""
-    if schema:
-        table_spec += '"' + schema.replace('"', '""') + '".'
-    table_spec += '"' + table_name.replace('"', '""') + '"'
-
-    df_columns = list(data_frame.columns)
-    if not match_columns:
-        insp = sa.inspect(engine)
-        match_columns = insp.get_pk_constraint(table_name, schema=schema)[
-            "constrained_columns"
-        ]
-    columns_to_update = [col for col in df_columns if col not in match_columns]
-    insert_col_list = ", ".join([f'"{col_name}"' for col_name in df_columns])
-    stmt = f"INSERT INTO {table_spec} ({insert_col_list})\n"
-    stmt += f"SELECT {insert_col_list} FROM temp_table\n"
-    match_col_list = ", ".join([f'"{col}"' for col in match_columns])
-    stmt += f"ON CONFLICT ({match_col_list}) DO UPDATE SET\n"
-    stmt += ", ".join(
-        [f'"{col}" = EXCLUDED."{col}"' for col in columns_to_update]
-    )
-
-    with engine.begin() as conn:
-        conn.exec_driver_sql("DROP TABLE IF EXISTS temp_table")
-        conn.exec_driver_sql(
-            f"CREATE TEMPORARY TABLE temp_table AS SELECT * FROM {table_spec} WHERE false"
-        )
-        data_frame.to_sql("temp_table", conn, if_exists="append", index=False)
-        conn.exec_driver_sql(stmt)
 
 
 def slicer(my_str,sub):
@@ -100,8 +52,8 @@ def postgres_upsert(table, conn, keys, data_iter):
 # Method-specific functions #
 #############################
 
-def get_fiman_atm(id, sensor, begin_date, end_date):
-    """Retrieve data from specified sensor from the NOAA tides and currents API
+def get_fiman_data(id, sensor, begin_date, end_date):
+    """Retrieve data from specified sensor from the FIMAN API
 
     Args:
         id (str): Station id
@@ -121,10 +73,8 @@ def get_fiman_atm(id, sensor, begin_date, end_date):
 
     fiman_gauge_keys = pd.read_csv("data/fiman_gauge_key.csv").query("site_id == @id & Sensor == @sensor")
     
-    # new_begin_date = pd.to_datetime(begin_date, utc=True) - timedelta(seconds = 3600)
-    new_begin_date = pd.to_datetime(begin_date, utc=True)
-    # new_end_date = pd.to_datetime(end_date, utc=True) + timedelta(seconds = 3600)
-    new_end_date = pd.to_datetime(end_date, utc=True)
+    new_begin_date = pd.to_datetime(begin_date, utc=True) - timedelta(seconds = 3600)
+    new_end_date = pd.to_datetime(end_date, utc=True) + timedelta(seconds = 3600)
     
     query = {'site_id' : fiman_gauge_keys.iloc[0]["site_id"],
              'data_start' : new_begin_date.strftime('%Y-%m-%d %H:%M:%S'),
@@ -150,8 +100,6 @@ def get_fiman_atm(id, sensor, begin_date, end_date):
     r_df = pd.DataFrame.from_dict(unnested)
 
     r_df["date"] = pd.to_datetime(r_df["data_time"], utc=True); 
-    # r_df["date"] = pd.to_datetime(r_df['data_time'], format='%Y-%m-%d %H:%M:%S', utc=True); 
-    r_df['data_value'] = r_df['data_value'].astype(float).round(2)
     r_df["id"] = str(id); 
     r_df["notes"] = "FIMAN"
     r_df["type"] = "water_level" if sensor == "Water Elevation" else "pressure"
@@ -159,35 +107,43 @@ def get_fiman_atm(id, sensor, begin_date, end_date):
 
     return r_df.drop_duplicates(subset=['id', 'date'])
 
-#####################
-# atm API functions #
-#####################
-
-def get_atm_pressure(atm_id, atm_src, begin_date, end_date):
-    """Yo, yo, yo, it's a wrapper function!
+def get_hohonu_data(id, begin_date, end_date):
+    """Retrieve data from specified sensor from the Hohonu API
 
     Args:
-        atm_id (str): Value from `sensor_surveys` table that declares the ID of the station to use for atmospheric pressure data.
-        atm_src (str): Value from `sensor_surveys` table that declares the source of the atmospheric pressure data.
-        begin_date (str): The beginning date to retrieve data. Format: %Y%m%d %H:%M
-        end_date (str): The end date to retrieve data. Format: %Y%m%d %H:%M
-
+        id (str): Station id
+        begin_date (str): Beginning date of requested time period. Format: %Y%m%d %H:%M
+        end_date (str): End date of requested time period. Format: %Y%m%d %H:%M
+        
     Returns:
-        pandas.DataFrame: Atmospheric pressure data for the specified time range and source
+        r_df (pd.DataFrame): DataFrame of requested data from specified station and time range. Dates in UTC
     """    
+
     print(inspect.stack()[0][3])    # print the name of the function we just entered
 
-    match atm_src.upper():
-        case "NOAA":
-            return get_noaa_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
-        case "NWS":
-            return get_nws_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
-        case "ISU":
-            return get_isu_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
-        case "FIMAN":
-            return get_fiman_atm(id = atm_id, begin_date = begin_date, end_date = end_date)
-        case _:
-            return "No valid `atm_src` provided! Make sure you are supplying a string"
+    new_begin_date = pd.to_datetime(begin_date, utc=True) - timedelta(seconds = 3600)
+    new_end_date = pd.to_datetime(end_date, utc=True) + timedelta(seconds = 3600)
+
+    query = {'datum' : 'NAVD',
+             'from' : new_begin_date.strftime('%Y-%m-%d'),
+             'to' : new_end_date.strftime('%Y-%m-%d'),
+             'format' : 'json',
+             'tz': '0',
+             'cleaned': 'true'
+    }
+    print(query)    # FOR DEBUGGING
+    url = "https://dashboard.hohonu.io/api/v1/stations/" + id + "/statistic"
+
+    r = requests.get(url, params=query, timeout=120, headers={'Authorization': '24c5a7d297ffb27efa4358fe080b3cdd7f88a7f4'})
+    j = json.loads(r.content)
+    r_df = pd.DataFrame({'timestamp': j['data'][0], 'value': j['data'][1]}).dropna()
+    r_df["date"] = pd.to_datetime(r_df["timestamp"], utc=True); 
+    r_df["id"] = str(id); 
+    r_df["api_name"] = "Hohonu"
+    r_df["type"] = "water_level"
+    r_df = r_df.loc[:,["id","date","value","api_name", "type"]]
+
+    return r_df.drop_duplicates(subset=['id', 'date'])
 
 def main():
     print("Entering main of process_pressure.py")
@@ -202,7 +158,7 @@ def main():
     SQLALCHEMY_DATABASE_URL = "postgresql://" + os.environ.get('POSTGRESQL_USER') + ":" + os.environ.get(
         'POSTGRESQL_PASSWORD') + "@" + os.environ.get('POSTGRESQL_HOSTNAME') + "/" + os.environ.get('POSTGRESQL_DATABASE')
 
-    engine = sa.create_engine(SQLALCHEMY_DATABASE_URL)
+    engine = create_engine(SQLALCHEMY_DATABASE_URL)
     
     #####################
     # Collect new data  #
@@ -210,50 +166,61 @@ def main():
 
     end_date = pd.to_datetime(datetime.utcnow())
     start_date = end_date - timedelta(days=int(os.environ.get('NUM_DAYS')))
-    
+
     # Get water level data
-    stations = pd.read_sql_query("SELECT DISTINCT wl_id FROM sensor_surveys WHERE wl_src='FIMAN'", engine)
-    stations = stations.to_numpy()
+
+    # FIMAN
+    # stations = pd.read_sql_query("SELECT DISTINCT wl_id FROM sensor_surveys WHERE wl_src='FIMAN'", engine)
+    # stations = stations.to_numpy()
     
+    # for wl_id in stations:
+    #     print("Querying site " + wl_id[0] + "...")
+    #     new_data = get_fiman_data(wl_id[0], 'Water Elevation', start_date, end_date)
+
+    #     if new_data.shape[0] == 0:
+    #         warnings.warn("- No new raw data!")
+    #         return
+        
+    #     print(new_data.shape[0] , "new records!")
+        
+    #     new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
+    #     time.sleep(10)
+
+    # Hohonu
+    stations = pd.read_sql_query("SELECT DISTINCT wl_id FROM sensor_surveys WHERE wl_src='Hohonu'", engine)
+    stations = stations.to_numpy()
+
     for wl_id in stations:
         print("Querying site " + wl_id[0] + "...")
-        # start_date = pd.read_sql_query(f"SELECT max(date) as start FROM external_api_data WHERE id='{wl_id[0]}'", engine)
-        # start_date = pd.to_datetime(start_date.start.iat[0]) + timedelta(minutes=1)
-        new_data = get_fiman_atm(wl_id[0], 'Water Elevation', start_date, end_date)
+        new_data = get_hohonu_data(wl_id[0], start_date, end_date)
 
         if new_data.shape[0] == 0:
             warnings.warn("- No new raw data!")
             return
         
         print(new_data.shape[0] , "new records!")
-        # query = f"SELECT * FROM external_api_data WHERE id='{wl_id[0]}' AND type='water_level' AND date >= '{start_date.strftime('%Y-%m-%d %H:%M:%S')}' AND date <= '{end_date.strftime('%Y-%m-%d %H:%M:%S')}'"
-        # existing = pd.read_sql_query(query, engine)
-        # existing['date'] = pd.to_datetime(existing['date'], format='%Y-%m-%d %H:%M:%S', utc=True)
-        # combined_data = pd.concat([new_data, existing])
-        # combined_data = combined_data.drop_duplicates(keep=False)
         
-        # df_upsert(combined_data, 'external_api_data', engine)
-        # time.sleep(10)
-  
         new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
         time.sleep(10)
-    
+
     # Get atm_pressure data
-    stations = pd.read_sql_query("SELECT DISTINCT atm_station_id FROM sensor_surveys WHERE atm_data_src='FIMAN'", engine)
-    stations = stations.to_numpy()
 
-    for atm_station_id in stations:
-        print("Querying site " + atm_station_id[0] + "...")
-        new_data = get_fiman_atm(atm_station_id[0], 'Barometric Pressure', start_date, end_date)
+    # FIMAN
+    # stations = pd.read_sql_query("SELECT DISTINCT atm_station_id FROM sensor_surveys WHERE atm_data_src='FIMAN'", engine)
+    # stations = stations.to_numpy()
 
-        if new_data.shape[0] == 0:
-            warnings.warn("- No new raw data!")
-            return
+    # for atm_station_id in stations:
+    #     print("Querying site " + atm_station_id[0] + "...")
+    #     new_data = get_fiman_atm(atm_station_id[0], 'Barometric Pressure', start_date, end_date)
+
+    #     if new_data.shape[0] == 0:
+    #         warnings.warn("- No new raw data!")
+    #         return
         
-        print(new_data.shape[0] , "new records!")
-        # df_upsert(new_data, 'external_api_data', engine)
-        new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
-        time.sleep(10)
+    #     print(new_data.shape[0] , "new records!")
+        
+    #     new_data.to_sql("external_api_data", engine, if_exists = "append", method=postgres_upsert, index=False)
+    #     time.sleep(10)
     
     engine.dispose()
 
